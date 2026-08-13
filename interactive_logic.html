@@ -16,7 +16,7 @@
     --invalid-bg:#e2e2e2;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
-  html, body{ overscroll-behavior:none; }
+  html, body{ overscroll-behavior:none; overflow-x:hidden; width:100%; max-width:100%; }
   body{
     font-family: "PT Sans", Arial, Helvetica, sans-serif;
     background: var(--paper);
@@ -101,9 +101,6 @@
     width:100%;
     max-width:800px;
     padding-bottom:8px;
-  }
-  #gridScaler{
-    transform-origin: top left;
   }
   #grid{
     display:grid;
@@ -300,7 +297,7 @@
 <div id="twoColRow">
 <div id="puzzleCol">
 <div id="gridWrap">
-  <div id="gridScaler"><div id="grid"></div></div>
+  <div id="grid"></div>
 </div>
 
 <div id="status"></div>
@@ -404,10 +401,11 @@ function solutionFor(rowGroupIdx, rowItem, colGroupIdx, colItem){
 const STORAGE_KEY = 'matchTheChaosSave_v2';
 const MARKS = ['', 'x', 'check', 'q']; // cycle order
 
-const CELL_W = 34, CELL_H = 34;
+const LABEL_COL1 = 34, LABEL_COL2 = 180, LABEL_ROW1 = 34, LABEL_ROW2 = 165;
+let CELL_W = 34, CELL_H = 34;
 const gridEl = document.getElementById('grid');
-gridEl.style.gridTemplateColumns = `34px 180px repeat(12, ${CELL_W}px)`;
-gridEl.style.gridTemplateRows = `34px 165px repeat(12, ${CELL_H}px)`;
+gridEl.style.gridTemplateColumns = `${LABEL_COL1}px ${LABEL_COL2}px repeat(12, ${CELL_W}px)`;
+gridEl.style.gridTemplateRows = `${LABEL_ROW1}px ${LABEL_ROW2}px repeat(12, ${CELL_H}px)`;
 
 const cellState = {}; // "rg-ri-cg-ci" -> mark
 const cellEls = {};
@@ -705,28 +703,24 @@ function loadProgress(){
 }
 loadProgress();
 
-// Scale the grid down to fit narrow screens instead of forcing horizontal scrolling.
-// The grid is built at a fixed pixel size (so borders stay crisp), so we measure the
-// available width and shrink it proportionally when it doesn't fit.
-function fitGridToWidth(){
+// Size the grid's data cells to the real measured width so it always fits
+// without needing the browser to visually scale anything (no transform,
+// no horizontal scroll trap) — the same fix already proven on the other puzzles.
+function sizeGrid(){
   const wrap = document.getElementById('gridWrap');
-  const scaler = document.getElementById('gridScaler');
-  const grid = document.getElementById('grid');
-  scaler.style.transform = 'none';
-  scaler.style.height = '';
+  if (!wrap) return;
   const available = wrap.clientWidth;
-  const natural = grid.offsetWidth;
-  if (!available || !natural) return;
-  const scale = Math.min(1, available / natural);
-  if (scale < 1){
-    scaler.style.transform = `scale(${scale})`;
-    // the scaled element still reserves its unscaled height, so correct it
-    scaler.style.height = (grid.offsetHeight * scale) + 'px';
-  }
+  const fixedCols = LABEL_COL1 + LABEL_COL2;
+  let cell = Math.floor((available - fixedCols) / 12);
+  cell = Math.max(16, Math.min(34, cell));
+  CELL_W = cell;
+  CELL_H = cell;
+  gridEl.style.gridTemplateColumns = `${LABEL_COL1}px ${LABEL_COL2}px repeat(12, ${CELL_W}px)`;
+  gridEl.style.gridTemplateRows = `${LABEL_ROW1}px ${LABEL_ROW2}px repeat(12, ${CELL_H}px)`;
 }
-window.addEventListener('load', fitGridToWidth);
-window.addEventListener('resize', fitGridToWidth);
-fitGridToWidth();
+window.addEventListener('resize', sizeGrid);
+window.addEventListener('orientationchange', () => setTimeout(sizeGrid, 50));
+sizeGrid();
 
 // (Text above it renders at fractional heights depending on font metrics -- this corrects for that
 // after real layout, rather than guessing at a CSS-only fix.)
