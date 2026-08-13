@@ -97,6 +97,24 @@
     margin:0 0 20px;
     line-height:1.4;
   }
+  #gridZoomRow{
+    width:100%;
+    max-width:800px;
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:6px;
+  }
+  #fitToggleBtn{
+    font-family:inherit;
+    font-size:0.8rem;
+    padding:6px 12px;
+    border-radius:6px;
+    border:1px solid #333;
+    background:white;
+    cursor:pointer;
+  }
+  #fitToggleBtn:hover{ background:#f0f0f0; }
+  #fitToggleBtn.active{ background:var(--highlight-border); color:white; border-color:var(--highlight-border); }
   #gridWrap{
     width:100%;
     max-width:800px;
@@ -128,8 +146,8 @@
   .grouplabel{
     background:#f1e9f7;
     font-weight:bold;
-    font-size:0.75rem;
-    padding:6px 4px;
+    font-size:calc(12px * var(--ui-scale, 1));
+    padding:calc(6px * var(--ui-scale, 1)) calc(4px * var(--ui-scale, 1));
     white-space:nowrap;
   }
   .rowgrouplabel{
@@ -141,10 +159,10 @@
     display:block;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    font-size:12px;
+    font-size:calc(12px * var(--ui-scale, 1));
     font-weight:bold;
     white-space:nowrap;
-    padding:0 3px;
+    padding:0 calc(3px * var(--ui-scale, 1));
   }
   .collabel{
     background:#f8f4fb;
@@ -155,16 +173,16 @@
     display:block;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    font-size:12.5px;
+    font-size:calc(12.5px * var(--ui-scale, 1));
     font-weight:600;
-    padding:6px 2px;
+    padding:calc(6px * var(--ui-scale, 1)) calc(2px * var(--ui-scale, 1));
     white-space:nowrap;
   }
   .rowlabel{
     background:#f8f4fb;
-    font-size:0.82rem;
+    font-size:calc(13.12px * var(--ui-scale, 1));
     font-weight:600;
-    padding:4px 8px;
+    padding:calc(4px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1));
     justify-content:center;
     white-space:nowrap;
     border-right:3px solid var(--cell-border);
@@ -175,7 +193,7 @@
   .collabel.thick-left, .grouplabel.thick-left{ border-left:0 !important; }
   .cell{
     cursor:pointer;
-    font-size:14px;
+    font-size:calc(14px * var(--ui-scale, 1));
     font-weight:bold;
   }
   .cell.mark-x{ color:var(--wrong); }
@@ -302,6 +320,9 @@
 
 <div id="twoColRow">
 <div id="puzzleCol">
+<div id="gridZoomRow">
+  <button id="fitToggleBtn">See Whole Puzzle</button>
+</div>
 <div id="gridWrap">
   <div id="grid"></div>
 </div>
@@ -716,6 +737,54 @@ function loadProgress(){
   } catch(e){}
 }
 loadProgress();
+
+// --- Fit-to-screen toggle: full size + scroll by default, or shrink the whole
+// grid (labels and cells together) to fit on screen at once, on demand. ---
+let fitMode = false;
+
+function applyFullSize(){
+  gridEl.style.gridTemplateColumns = `${LABEL_COL1}px ${LABEL_COL2}px repeat(12, ${CELL_W}px)`;
+  gridEl.style.gridTemplateRows = `${LABEL_ROW1}px ${LABEL_ROW2}px repeat(12, ${CELL_H}px)`;
+  document.documentElement.style.setProperty('--ui-scale', 1);
+}
+
+function applyFitToScreen(){
+  const wrap = document.getElementById('gridWrap');
+  if (!wrap) return;
+  const available = wrap.clientWidth;
+  const natural = LABEL_COL1 + LABEL_COL2 + 12 * 34;
+  const scale = Math.min(1, available / natural);
+  const l1 = Math.max(10, Math.round(LABEL_COL1 * scale));
+  const l2 = Math.max(40, Math.round(LABEL_COL2 * scale));
+  const r1 = Math.max(10, Math.round(LABEL_ROW1 * scale));
+  const r2 = Math.max(35, Math.round(LABEL_ROW2 * scale));
+  const cell = Math.max(8, Math.round(34 * scale));
+  gridEl.style.gridTemplateColumns = `${l1}px ${l2}px repeat(12, ${cell}px)`;
+  gridEl.style.gridTemplateRows = `${r1}px ${r2}px repeat(12, ${cell}px)`;
+  document.documentElement.style.setProperty('--ui-scale', scale);
+}
+
+function setFitMode(on){
+  fitMode = on;
+  const btn = document.getElementById('fitToggleBtn');
+  if (on){
+    applyFitToScreen();
+    btn.textContent = 'Full Size';
+    btn.classList.add('active');
+  } else {
+    applyFullSize();
+    btn.textContent = 'See Whole Puzzle';
+    btn.classList.remove('active');
+  }
+}
+
+document.getElementById('fitToggleBtn').addEventListener('click', () => setFitMode(!fitMode));
+document.getElementById('gridWrap').addEventListener('dblclick', (e) => {
+  if (e.target.closest('.cell')) return; // don't toggle from double-tapping an answer cell
+  setFitMode(!fitMode);
+});
+window.addEventListener('resize', () => { if (fitMode) applyFitToScreen(); });
+window.addEventListener('orientationchange', () => { if (fitMode) setTimeout(applyFitToScreen, 50); });
 
 // (Text above it renders at fractional heights depending on font metrics -- this corrects for that
 // after real layout, rather than guessing at a CSS-only fix.)
